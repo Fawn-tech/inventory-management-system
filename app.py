@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 import inventory
+import external_api
 
 app = Flask(__name__)
 
@@ -37,6 +38,28 @@ def delete_item(item_id):
     if not inventory.delete(item_id):
         return jsonify({"error": "Item not found"}), 404
     return "", 204  
+
+@app.route('/external/product/<barcode>', methods=['GET'])
+def external_get_product(barcode):
+    """Fetch product details from OpenFoodFacts (does not save)."""
+    product = external_api.fetch_by_barcode(barcode)
+    if product is None:
+        return jsonify({"error": f"Product {barcode} not found"}), 404
+    return jsonify(product), 200
+
+@app.route('/external/import/<barcode>', methods=['POST'])
+def external_import_product(barcode):
+    """Fetch a product from OpenFoodFacts and add it to inventory."""
+    product = external_api.fetch_by_barcode(barcode)
+    if product is None:
+        return jsonify({"error": f"Product {barcode} not found"}), 404
+
+    new_item = inventory.create({
+        "product": product["product"],
+        "price": 0.0,
+        "stock": 0
+    })
+    return jsonify(new_item), 201
 
 if __name__ == '__main__':
     app.run(debug=True)
